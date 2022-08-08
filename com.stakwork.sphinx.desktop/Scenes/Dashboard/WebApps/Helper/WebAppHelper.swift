@@ -230,10 +230,11 @@ extension WebAppHelper : WKScriptMessageHandler {
     }
     
     func saveLSAT(_ dict: [String: AnyObject]) {
+        print("THIS is the dict", dict)
+        if let paymentRequest = dict["paymentRequest"] as? String, let macaroon = dict["macaroon"] as? String, let issuer = dict["issuer"] as? String, let paths = dict["paths"] as? String{
+            let params = ["paymentRequest": paymentRequest as AnyObject, "macaroon": macaroon as AnyObject, "issuer": issuer as AnyObject, "paths": paths as AnyObject]
+            print("These are the params: ", params)
 
-        if let paymentRequest = dict["paymentRequest"] as? String, let macaroon = dict["macaroon"] as? String, let issuer = dict["issuer"] as? String {
-            let params = ["paymentRequest": paymentRequest as AnyObject, "macaroon": macaroon as AnyObject, "issuer": issuer as AnyObject]
-            
             let prDecoder = PaymentRequestDecoder()
             prDecoder.decodePaymentRequest(paymentRequest: paymentRequest)
             let amount = prDecoder.getAmount()
@@ -241,6 +242,11 @@ extension WebAppHelper : WKScriptMessageHandler {
                 let canPay: DarwinBoolean = checkCanPay(amount: amount)
                 if(canPay == false){
                     self.sendLsatResponse(dict: dict, success: false)
+                    return
+                }
+                let lsat = getLsatIfOwned(issuer: issuer, paths: paths, dict: dict)
+                if(lsat == true) {
+                    
                     return
                 }
                 API.sharedInstance.payLsat(parameters: params, callback: { payment in
@@ -292,4 +298,20 @@ extension WebAppHelper : WKScriptMessageHandler {
         return false
     }
 
+    func getLsatIfOwned(issuer: String, paths: String, dict: [String: AnyObject]) -> DarwinBoolean {
+        print("Checking if we have lsat saved", issuer, paths)
+        API.sharedInstance.getLsat(issuer: issuer, paths: paths, callback: { payment in
+            print("request success", payment)
+            var newDict = dict
+            if let lsat = payment["lsat"].string {
+                newDict["lsat"] = lsat as AnyObject
+            }
+            
+            self.sendLsatResponse(dict: newDict, success: true)
+        }, errorCallback: {
+            
+        })
+        return false
+    }
+    
 }

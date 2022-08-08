@@ -213,8 +213,35 @@ extension API {
         callback: @escaping PayInvoiceCallback,
         errorCallback: @escaping EmptyCallback
     ) {
-
         guard let request = getURLRequest(route: "/lsats", params: parameters as NSDictionary?, method: "POST") else {
+            errorCallback()
+            return
+        }
+        
+        sphinxRequest(request) { response in
+            switch response.result {
+            case .success(let data):
+                if let json = data as? NSDictionary {
+                    if let success = json["success"] as? Bool, let response = json["response"] as? NSDictionary, success {
+                        callback(JSON(response))
+                    } else {
+                        errorCallback()
+                    }
+                }
+            case .failure(_):
+                errorCallback()
+            }
+        }
+    }
+    
+    public func getLsat(
+        issuer: String,
+        paths: String,
+        callback: @escaping PayInvoiceCallback,
+        errorCallback: @escaping EmptyCallback
+    ) {
+        print("calling the actual path", issuer, paths)
+        guard let request = getURLRequest(route: "/lsats/\(issuer)/\(paths)", method: "GET") else {
             errorCallback()
             return
         }
